@@ -3,11 +3,15 @@ import numpy as np
 import random 
 
 class Pursuit:
-    def __init__(self,Vocabulary,gamma):
+    def __init__(self,Vocabulary,gamma,smoothing_factor,treshold): #Add vocab manually so that it can be used for already existing vocabulary too.
         self.Vocabulary = Vocabulary   
         self.gamma = gamma 
+        self.smoothing_factor = smoothing_factor
+        self.treshold = treshold
+        self.observed_Meanings = []
         self.Uttered_dict = {}
         self.Visible_dict = {}
+        self.Favories = {}
 
     def initialize(self,uttered,L_visible): # Takes word and List of VISIBLE elements(and dict which is defined within class). Returns chosen one.
         a = float("inf")
@@ -23,24 +27,117 @@ class Pursuit:
                     choice = visible
         if l != []:
             select = random.choice(l)
-            
-            self.initialize_update(uttered,select)
+            self.update(uttered,select,self.gamma)
             return
         else:
-            self.initialize_update(uttered,choice)
-    def initialize_update(self,uttered,visible):
-        if uttered not in self.Uttered_dict:
-            self.Uttered_dict[uttered] = {visible : self.gamma}
-            if visible not in self.Visible_dict:
-                self.Visible_dict[visible] = {uttered: self.gamma}
-            else:
-                self.Visible_dict[visible][uttered] = self.gamma
+            self.update(uttered,choice,self.gamma)
+
+    
+    def update(self,uttered,visible,update): 
+        self.Uttered_dict.setdefault(uttered, {})[visible] = update
+        self.Visible_dict.setdefault(visible, {})[uttered] = update
+    def fix_Favorite(self,uttered): #Takes uttered word
+        if uttered not in self.Favories:
+            maxim = max(self.Uttered_dict[uttered].values())
+            item = [i for i,v in self.Uttered_dict[uttered].items() if v == maxim][0]
+            self.Favories[uttered] = item
+
+
+    def reward(self,uttered,hypothesis): #Takes uttered word and hypothesis. 
+        current = self.Uttered_dict[uttered][hypothesis]
+        update = current + self.gamma * (1 - current)
+        self.update(uttered=uttered,visible=hypothesis,update=update)
+    
+
+
+    def penalize(self,uttered,hypothesis):
+        current = self.Uttered_dict[uttered][hypothesis]
+        update = current * (1 - self.gamma)
+        self.update(uttered=uttered,visible=hypothesis,update=update)
+    
+    def check_Pursuit(self,uttered,hypothesis):
+        current = self.Uttered_dict[uttered][hypothesis]
+        P = (current + self.smoothing_factor) / (sum(self.Uttered_dict[uttered].values()) + len(self.observed_Meanings) * self.smoothing_factor)
+        if P >= self.treshold:
+            return True
         else:
-            self.Uttered_dict[uttered][visible] = self.gamma
-            if visible not in self.Visible_dict:
-                self.Visible_dict[visible] = {uttered: self.gamma}
-            else:
-                self.Visible_dict[visible][uttered] = self.gamma
+            return False
+
+
+    
+    def set_Vocabulary(self,Dataframe,get_Vocab = False):
+        #Convert them to list
+        uttered_Data = Dataframe["uttered"].tolist()
+        visible_Data = Dataframe["visible"].tolist()
+
+        for i in range(len(uttered_Data)):
+            for j in  range(len(uttered_Data[i])):
+                uttered_Word = uttered_Data[i][j]
+                visible_List = visible_Data[i]
+                for k in visible_List:
+                    if k not in self.observed_Meanings:
+                        self.observed_Meanings.append(k)
+
+                if uttered_Word not in self.Uttered_dict:
+                    self.initialize(uttered=uttered_Word,L_visible=visible_List)
+                    self.fix_Favorite(uttered_Word)
+                
+                else:
+                    hypo = self.Favories[uttered_Word]
+                    
+                    if hypo in visible_List:
+                        self.reward(uttered_Word,hypo)
+                        if self.check_Pursuit(uttered_Word,hypo):
+                            self.Vocabulary[uttered_Word] = hypo 
+                    else:
+                        self.penalize(uttered_Word,hypo)
+
+                        new_poss_hypo = random.choice(visible_List)
+
+                        if new_poss_hypo not in self.Uttered_dict[uttered_Word]:
+                            self.update(uttered=uttered_Word,visible=new_poss_hypo,update=self.gamma)
+                            self.fix_Favorite(uttered=uttered_Word)
+                        else:
+                            self.reward(uttered=uttered_Word,hypothesis=new_poss_hypo)
+                            self.fix_Favorite(uttered=uttered_Word)
+        if get_Vocab:
+            return self.Vocabulary
+    def get_Results(self,Gold,get_Score = False):
+        score = 0
+        over = len(Gold)
+        for uttered in self.Vocabulary:
+            if uttered in Gold:
+                if self.Vocabulary[uttered] == Gold[uttered]:
+                    score += 1
+        print(f"{int((score/over)*100)}% Accuracy")
+
+        if get_Score:
+            return int((score/over)*100)
+        
+
+
+
+
+                            
+
+
+
+
+                
+
+
+
+
+
+
+
+        
+
+    
+
+    
+    
+
 
 
 
