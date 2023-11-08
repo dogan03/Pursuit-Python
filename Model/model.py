@@ -102,17 +102,23 @@ class Pursuit:
                             self.fix_Favorite(uttered=uttered_Word)
         if get_Vocab:
             return self.Vocabulary
-    def get_Results(self,Gold,get_Score = False):
+    def get_Results(self,Gold,get_Score = False,Compare = False):
         score = 0
         over = len(Gold)
-        for uttered in self.Vocabulary:
-            if uttered in Gold:
+        for uttered in Gold:
+            if uttered in self.Vocabulary:
                 if self.Vocabulary[uttered] == Gold[uttered]:
                     score += 1
+                    if Compare == True:
+                        print(f"[TRUE:{uttered} in Vocab: {self.Vocabulary[uttered]}, in gold set: {Gold[uttered]}]")
+                else:
+                    if Compare == True:
+                        print(f"[FALSE:{uttered} in Vocab: {self.Vocabulary[uttered]}, in gold set: {Gold[uttered]}]")
         print(f"{int((score/over)*100)}% Accuracy")
 
         if get_Score:
             return int((score/over)*100)
+        
         
 
 
