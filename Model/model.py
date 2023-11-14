@@ -3,7 +3,7 @@ import numpy as np
 import random 
 
 class Pursuit:
-    def __init__(self,Vocabulary,gamma,smoothing_factor,treshold): #Add vocab manually so that it can be used for already existing vocabulary too.
+    def __init__(self,Vocabulary,gamma,smoothing_factor,treshold,change_Denominator = False): #Add vocab manually so that it can be used for already existing vocabulary too.
         self.Vocabulary = Vocabulary   
         self.gamma = gamma 
         self.smoothing_factor = smoothing_factor
@@ -12,6 +12,7 @@ class Pursuit:
         self.Uttered_dict = {}
         self.Visible_dict = {}
         self.Favories = {}
+        self.change_Denominator = change_Denominator
 
     def initialize(self,uttered,L_visible): # Takes word and List of VISIBLE elements(and dict which is defined within class). Returns chosen one.
         a = float("inf")
@@ -55,9 +56,16 @@ class Pursuit:
         update = current * (1 - self.gamma)
         self.update(uttered=uttered,visible=hypothesis,update=update)
     
-    def check_Pursuit(self,uttered,hypothesis):
-        current = self.Uttered_dict[uttered][hypothesis]
-        P = (current + self.smoothing_factor) / (sum(self.Uttered_dict[uttered].values()) + len(self.observed_Meanings) * self.smoothing_factor)
+    def check_Pursuit(self,uttered,hypothesis,change_Denom = None, vis = None):
+        if change_Denom is None:
+            change_Denom = self.change_Denominator
+        if change_Denom is False:
+            current = self.Uttered_dict[uttered][hypothesis]
+            P = (current + self.smoothing_factor) / (sum(self.Uttered_dict[uttered].values()) + len(self.observed_Meanings) * self.smoothing_factor)
+        else:
+            current = self.Uttered_dict[uttered][hypothesis]
+            P = (current + self.smoothing_factor) / (sum(self.Uttered_dict[uttered].values()) + len(vis) * self.smoothing_factor)
+
         if P >= self.treshold:
             return True
         else:
@@ -87,7 +95,7 @@ class Pursuit:
                     
                     if hypo in visible_List:
                         self.reward(uttered_Word,hypo)
-                        if self.check_Pursuit(uttered_Word,hypo):
+                        if self.check_Pursuit(uttered_Word,hypo,vis = visible_List):
                             self.Vocabulary[uttered_Word] = hypo 
                     else:
                         self.penalize(uttered_Word,hypo)
@@ -110,14 +118,41 @@ class Pursuit:
                 if self.Vocabulary[uttered] == Gold[uttered]:
                     score += 1
                     if Compare == True:
-                        print(f"[TRUE:{uttered} in Vocab: {self.Vocabulary[uttered]}, in gold set: {Gold[uttered]}]")
+                        print(f"[TRUE:[{uttered}] in Vocab: {self.Vocabulary[uttered]} || in gold set: {Gold[uttered]}]")
                 else:
                     if Compare == True:
-                        print(f"[FALSE:{uttered} in Vocab: {self.Vocabulary[uttered]}, in gold set: {Gold[uttered]}]")
+                        print(f"[FALSE:[{uttered}] in Vocab: {self.Vocabulary[uttered]} || in gold set: {Gold[uttered]}]")
         print(f"{int((score/over)*100)}% Accuracy")
 
         if get_Score:
             return int((score/over)*100)
+    
+    @staticmethod
+    def text_to_df(name):
+        with open(f'Data/{name}/{name}.txt', 'r') as file:
+            lines = file.readlines()
+        uttered = []
+        visible = []
+        row = 0
+        while row < len(lines):
+            uttered.append(lines[row].split())
+            visible.append(lines[row+1].split())
+            row +=3
+        return pd.DataFrame({
+            "uttered" : uttered,
+            "visible" : visible
+        })
+    
+
+    @staticmethod
+    def csv_to_dict(name):
+        df = pd.read_csv(f'Data/{name[:len(name)-5]}/{name}.csv')
+        train = {}
+
+        for i in range(len(df)):
+            train[df.iloc[i, 0]] = df.iloc[i, 1]
+        return train
+
         
         
 
